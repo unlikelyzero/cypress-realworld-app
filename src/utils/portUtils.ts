@@ -3,12 +3,13 @@ import detect from "detect-port";
 
 export const frontendPort = process.env.PORT;
 export const backendPort = process.env.VITE_BACKEND_PORT;
+export const backendHost = process.env.VITE_BACKEND_HOST || "localhost";
 
 export const getBackendPort = async () => {
   return detect(Number(backendPort))
     .then((_port) => {
       if (Number(backendPort) === _port) {
-        console.log(chalk.green(`Backend server running at http://localhost:${backendPort}`));
+        console.log(chalk.green(`Backend server running at http://${backendHost}:${backendPort}`));
         return Number(backendPort);
       }
 

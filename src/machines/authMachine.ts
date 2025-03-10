@@ -3,7 +3,7 @@ import { omit } from "lodash/fp";
 import { httpClient } from "../utils/asyncUtils";
 import { history } from "../utils/historyUtils";
 import { User } from "../models";
-import { backendPort } from "../utils/portUtils";
+import { backendPort, backendHost } from "../utils/portUtils";
 
 export interface AuthMachineSchema {
   states: {
@@ -21,21 +21,21 @@ export interface AuthMachineSchema {
   };
 }
 
-export type AuthMachineEvents =
-  | { type: "LOGIN" }
-  | { type: "LOGOUT" }
-  | { type: "UPDATE" }
-  | { type: "REFRESH" }
-  | { type: "AUTH0" }
-  | { type: "COGNITO" }
-  | { type: "OKTA" }
-  | { type: "GOOGLE" }
-  | { type: "SIGNUP" };
-
 export interface AuthMachineContext {
   user?: User;
   message?: string;
 }
+
+export type AuthMachineEvents =
+  | { type: "LOGIN"; username: string; password: string }
+  | { type: "LOGOUT" }
+  | { type: "UPDATE"; user: User }
+  | { type: "REFRESH" }
+  | { type: "SIGNUP"; user: User }
+  | { type: "GOOGLE"; user: User; token: string }
+  | { type: "AUTH0"; user: User; token: string }
+  | { type: "OKTA"; user: User; token: string }
+  | { type: "COGNITO"; user: User; token: string };
 
 export const authMachine = Machine<AuthMachineContext, AuthMachineSchema, AuthMachineEvents>(
   {
@@ -149,13 +149,13 @@ export const authMachine = Machine<AuthMachineContext, AuthMachineSchema, AuthMa
     services: {
       performSignup: async (ctx, event) => {
         const payload = omit("type", event);
-        const resp = await httpClient.post(`http://localhost:${backendPort}/users`, payload);
+        const resp = await httpClient.post(`http://${backendHost}:${backendPort}/users`, payload);
         history.push("/signin");
         return resp.data;
       },
       performLogin: async (ctx, event) => {
         return await httpClient
-          .post(`http://localhost:${backendPort}/login`, event)
+          .post(`http://${backendHost}:${backendPort}/login`, event)
           .then(({ data }) => {
             history.push("/");
             return data;
@@ -180,7 +180,7 @@ export const authMachine = Machine<AuthMachineContext, AuthMachineSchema, AuthMa
         return Promise.resolve({ user });
       },
       getUserProfile: async (ctx, event) => {
-        const resp = await httpClient.get(`http://localhost:${backendPort}/checkAuth`);
+        const resp = await httpClient.get(`http://${backendHost}:${backendPort}/checkAuth`);
         return resp.data;
       },
       getGoogleUserProfile: /* istanbul ignore next */ (ctx, event: any) => {
@@ -203,8 +203,9 @@ export const authMachine = Machine<AuthMachineContext, AuthMachineSchema, AuthMa
         const user = {
           id: event.user.sub,
           email: event.user.email,
-          firstName: event.user.nickname,
-          avatar: event.user.picture,
+          firstName: event.user.given_name,
+          lastName: event.user.family_name,
+          username: event.user.nickname,
         };
 
         // Set Auth0 Access Token in Local Storage for API calls
@@ -212,29 +213,32 @@ export const authMachine = Machine<AuthMachineContext, AuthMachineSchema, AuthMa
 
         return Promise.resolve({ user });
       },
+      getCognitoUserProfile: /* istanbul ignore next */ (ctx, event: any) => {
+        // Map Cognito User fields to our User Model
+        const user = {
+          id: event.userSub,
+          email: event.email,
+          firstName: event.email,
+          lastName: event.email,
+          username: event.email,
+        };
+
+        // Set Cognito Access Token in Local Storage for API calls
+        localStorage.setItem(process.env.VITE_AUTH_TOKEN_NAME!, event.accessTokenJwtString);
+
+        return Promise.resolve({ user });
+      },
+      performLogout: async (ctx, event) => {
+        localStorage.removeItem(process.env.VITE_AUTH_TOKEN_NAME!);
+        return Promise.resolve();
+      },
       updateProfile: async (ctx, event: any) => {
         const payload = omit("type", event);
         const resp = await httpClient.patch(
-          `http://localhost:${backendPort}/users/${payload.id}`,
+          `http://${backendHost}:${backendPort}/users/${payload.id}`,
           payload
         );
         return resp.data;
-      },
-      performLogout: async (ctx, event) => {
-        localStorage.removeItem("authState");
-        return await httpClient.post(`http://localhost:${backendPort}/logout`);
-      },
-      getCognitoUserProfile: /* istanbul ignore next */ (ctx, event: any) => {
-        // Map Cognito User fields to our User Model
-        const ourUser = {
-          id: event.userSub,
-          email: event.email,
-        };
-
-        // Set Access Token in Local Storage for API calls
-        localStorage.setItem(process.env.VITE_AUTH_TOKEN_NAME!, event.accessTokenJwtString);
-
-        return Promise.resolve(ourUser);
       },
     },
     actions: {
