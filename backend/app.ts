@@ -29,8 +29,10 @@ import { frontendPort, getBackendPort } from "../src/utils/portUtils";
 require("dotenv").config();
 
 const corsOption = {
-  origin: `http://localhost:${frontendPort}`,
+  origin: true,
   credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
 };
 
 const schema = loadSchemaSync(join(__dirname, "./graphql/schema.graphql"), {
