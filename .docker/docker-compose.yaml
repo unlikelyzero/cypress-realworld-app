@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  app:
+    container_name: app
+    build:
+      context: ..
+      dockerfile: .docker/Dockerfile
+    ports:
+      - "3000:3000"  # Frontend
+      - "3001:3001"  # Backend
+    env_file:
+      - ../.env
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - VITE_BACKEND_PORT=3001
+      - SEED_DEFAULT_USER_PASSWORD=s3cret
+      - PAGINATION_PAGE_SIZE=10
+      - VITE_AUTH_TOKEN_NAME=authAccessToken
+      - HOST=0.0.0.0
+      - VITE_BACKEND_HOST=0.0.0.0
+      - REACT_APP_BACKEND_URL=http://0.0.0.0:3001
+      - VITE_BACKEND_URL=http://0.0.0.0:3001
+    volumes:
+      - ../src:/app/src
+      - ../public:/app/public
+      - ../data:/app/data
+      - ../vite.config.ts:/app/vite.config.ts
+      - ../.env:/app/.env
+      - aws-exports:/app/src
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:latest
+    ports:
+      - "8474:8474"  # Toxiproxy API
+      - "3002:3002"  # Proxied frontend port (no latency)
+      - "3003:3003"  # Proxied frontend port (with latency)
+    command: -host 0.0.0.0
+    networks:
+      - selenium-net
+      - app-network
+      - default
+    depends_on:
+      - app
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8474/proxies"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  selenium-chrome:
+    image: selenium/standalone-chrome:4.10.0
+    shm_size: '2g'  # Increase shared memory size for better stability
+    ports:
+      - "4444:4444"      # Selenium WebDriver port
+      - "7900:7900"      # VNC viewer port (for debugging)
+      - "9222:9222"      # Chrome DevTools Protocol (CDP) port
+      - "4445:4445"      # WebDriver BiDi port
+    environment:
+      - SE_NODE_MAX_SESSIONS=1
+      - SE_NODE_OVERRIDE_MAX_SESSIONS=true
+      - SE_CDP_HOST=selenium-chrome
+      - SCREEN_WIDTH=1920
+      - SCREEN_HEIGHT=1080
+    networks:
+      - selenium-net
+      - app-network
+      - default
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - toxiproxy
+    healthcheck:
+      test: |
+        wget --no-verbose --tries=1 --spider http://localhost:4444/status || exit 1 &&
+        wget --no-verbose --tries=1 --spider http://localhost:7900 || exit 1 &&
+        wget --no-verbose --tries=1 --spider http://localhost:9222/json/version || exit 1 &&
+        wget --no-verbose --tries=1 --spider http://localhost:4445 || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+networks:
+  selenium-net:
+    driver: bridge
+  app-network:
+    driver: bridge
+
+volumes:
+  aws-exports:
