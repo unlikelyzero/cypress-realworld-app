@@ -3,24 +3,22 @@ version: '3.8'
 services:
   frontend:
     build:
-      context: ..
-      dockerfile: .docker/frontend.Dockerfile
+      context: .
+      dockerfile: .docker/Dockerfile.frontend
     networks:
       - selenium-net
       - default
     environment:
-      - NODE_ENV=development
-      - REACT_APP_BACKEND_URL=http://backend:3001
-      - VITE_BACKEND_HOST=backend
-      - VITE_BACKEND_PORT=3001
-    command: yarn start:react
+      - NODE_ENV=production
+      - REACT_APP_BACKEND_URL=http://localhost:3001
+    command: sh -c "yarn build && npx serve -s build -l 3000"
     expose:
       - "3000"
     volumes:
-      - ../src:/app/src
-      - ../public:/app/public
-      - ../data:/app/data
-      - ../vite.config.ts:/app/vite.config.ts
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./data:/app/data
+      - ./vite.config.ts:/app/vite.config.ts
       - aws-exports:/app/src
     depends_on:
       - backend
@@ -32,8 +30,8 @@ services:
 
   backend:
     build:
-      context: ..
-      dockerfile: .docker/backend.Dockerfile
+      context: .
+      dockerfile: .docker/Dockerfile.backend
     ports:
       - "3001:3001"
     environment:
@@ -44,8 +42,8 @@ services:
       - VITE_AUTH_TOKEN_NAME=authAccessToken
       - HOST=0.0.0.0
     volumes:
-      - ../backend:/app/backend
-      - ../data:/app/data
+      - ./backend:/app/backend
+      - ./data:/app/data
       - aws-exports:/app/src
 
   toxiproxy:
@@ -54,6 +52,7 @@ services:
       - "8474:8474"  # Toxiproxy API
       - "3002:3002"  # Proxied frontend port (no latency)
       - "3003:3003"  # Proxied frontend port (with latency)
+      - "4445:4445"  # Proxied Selenium port (with latency)
     command: -host 0.0.0.0
     networks:
       - selenium-net
@@ -65,7 +64,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-      start_period: 5s
 
   selenium-chrome:
     image: selenium/standalone-chrome:4.10.0
@@ -97,7 +95,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-      start_period: 30s
 
 networks:
   selenium-net:

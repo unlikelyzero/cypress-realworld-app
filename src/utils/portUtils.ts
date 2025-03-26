@@ -3,7 +3,20 @@ import detect from "detect-port";
 
 export const frontendPort = process.env.PORT;
 export const backendPort = process.env.VITE_BACKEND_PORT;
-export const backendHost = process.env.VITE_BACKEND_HOST || "localhost";
+
+// Determine the backend host based on the current port
+const determineBackendHost = () => {
+  if (typeof window !== "undefined") {
+    // If accessing through toxiproxy (ports 3002 or 3003), use localhost
+    if (window.location.port === "3002" || window.location.port === "3003") {
+      return "localhost";
+    }
+  }
+  // Default to the environment variable or localhost
+  return process.env.VITE_BACKEND_HOST || "localhost";
+};
+
+export const backendHost = determineBackendHost();
 
 export const getBackendPort = async () => {
   return detect(Number(backendPort))

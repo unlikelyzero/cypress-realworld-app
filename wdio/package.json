@@ -30,8 +30,8 @@
     "test:selenium-toxi-slow-selenium": "wdio run ./wdio.conf.selenium-toxi-slow-selenium.ts",
     "test:cdp": "AUTOMATION_PROTOCOL=devtools wdio run ./wdio.conf.cdp.ts",
     "test:bidi": "wdio run ./wdio.conf.bidi.ts",
-    "setup:proxies": "NODE_OPTIONS=\"--loader ts-node/esm\" ts-node scripts/setup-proxies.ts",
-    "check:proxies": "NODE_OPTIONS=\"--loader ts-node/esm\" ts-node scripts/check-proxies.ts"
+    "toxi:proxies:setup": "NODE_OPTIONS=\"--loader ts-node/esm\" ts-node scripts/setup-proxies.ts",
+    "toxi:proxies:check": "NODE_OPTIONS=\"--loader ts-node/esm\" ts-node scripts/check-proxies.ts"
   },
   "version": "1.0.0",
   "description": "This directory contains a flexible WebdriverIO setup that supports multiple automation protocols and browser control methods. The configuration is structured to allow running tests either locally or against a Selenium container with various protocols.",

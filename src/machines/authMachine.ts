@@ -31,11 +31,11 @@ export type AuthMachineEvents =
   | { type: "LOGOUT" }
   | { type: "UPDATE"; user: User }
   | { type: "REFRESH" }
-  | { type: "SIGNUP"; user: User }
-  | { type: "GOOGLE"; user: User; token: string }
   | { type: "AUTH0"; user: User; token: string }
+  | { type: "COGNITO"; user: User; token: string }
   | { type: "OKTA"; user: User; token: string }
-  | { type: "COGNITO"; user: User; token: string };
+  | { type: "GOOGLE"; user: User; token: string }
+  | { type: "SIGNUP"; user: User };
 
 export const authMachine = Machine<AuthMachineContext, AuthMachineSchema, AuthMachineEvents>(
   {
@@ -164,6 +164,18 @@ export const authMachine = Machine<AuthMachineContext, AuthMachineSchema, AuthMa
             throw new Error("Username or password is invalid");
           });
       },
+      getUserProfile: async (ctx, event) => {
+        const resp = await httpClient.get(`http://${backendHost}:${backendPort}/checkAuth`);
+        return resp.data;
+      },
+      updateProfile: async (ctx, event: any) => {
+        const payload = omit("type", event);
+        const resp = await httpClient.patch(
+          `http://${backendHost}:${backendPort}/users/${payload.id}`,
+          payload
+        );
+        return resp.data;
+      },
       getOktaUserProfile: /* istanbul ignore next */ (ctx, event: any) => {
         // Map Okta User fields to our User Model
         const user = {
@@ -178,10 +190,6 @@ export const authMachine = Machine<AuthMachineContext, AuthMachineSchema, AuthMa
         localStorage.setItem(process.env.VITE_AUTH_TOKEN_NAME!, event.token);
 
         return Promise.resolve({ user });
-      },
-      getUserProfile: async (ctx, event) => {
-        const resp = await httpClient.get(`http://${backendHost}:${backendPort}/checkAuth`);
-        return resp.data;
       },
       getGoogleUserProfile: /* istanbul ignore next */ (ctx, event: any) => {
         // Map Google User fields to our User Model
@@ -231,14 +239,6 @@ export const authMachine = Machine<AuthMachineContext, AuthMachineSchema, AuthMa
       performLogout: async (ctx, event) => {
         localStorage.removeItem(process.env.VITE_AUTH_TOKEN_NAME!);
         return Promise.resolve();
-      },
-      updateProfile: async (ctx, event: any) => {
-        const payload = omit("type", event);
-        const resp = await httpClient.patch(
-          `http://${backendHost}:${backendPort}/users/${payload.id}`,
-          payload
-        );
-        return resp.data;
       },
     },
     actions: {
