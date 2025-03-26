@@ -1,50 +1,32 @@
 version: '3.8'
 
 services:
-  frontend:
+  app:
     build:
       context: ..
-      dockerfile: .docker/frontend.Dockerfile
-    networks:
-      - selenium-net
-      - default
+      dockerfile: .docker/Dockerfile
+    ports:
+      - "3000:3000"  # Frontend
+      - "3001:3001"  # Backend
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=development
+      - PORT=3001
+      - SEED_DEFAULT_USER_PASSWORD=s3cret
+      - PAGINATION_PAGE_SIZE=10
+      - VITE_AUTH_TOKEN_NAME=authAccessToken
+      - HOST=0.0.0.0
       - REACT_APP_BACKEND_URL=http://localhost:3001
-    command: sh -c "yarn build && npx serve -s build -l 3000"
-    expose:
-      - "3000"
     volumes:
       - ../src:/app/src
       - ../public:/app/public
       - ../data:/app/data
       - ../vite.config.ts:/app/vite.config.ts
       - aws-exports:/app/src
-    depends_on:
-      - backend
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000"]
       interval: 10s
       timeout: 5s
       retries: 3
-
-  backend:
-    build:
-      context: ..
-      dockerfile: .docker/backend.Dockerfile
-    ports:
-      - "3001:3001"
-    environment:
-      - PORT=3001
-      - NODE_ENV=development
-      - SEED_DEFAULT_USER_PASSWORD=s3cret
-      - PAGINATION_PAGE_SIZE=10
-      - VITE_AUTH_TOKEN_NAME=authAccessToken
-      - HOST=0.0.0.0
-    volumes:
-      - ../backend:/app/backend
-      - ../data:/app/data
-      - aws-exports:/app/src
 
   toxiproxy:
     image: ghcr.io/shopify/toxiproxy:latest
@@ -57,7 +39,7 @@ services:
       - selenium-net
       - default
     depends_on:
-      - frontend
+      - app
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8474/proxies"]
       interval: 10s
